@@ -57,7 +57,7 @@ class Publisher:
             ("@0x23/1/24", "DINT"): "velocity",
         }
 
-        self.start_data_polling(cycle=1/50)
+        self.start_data_polling(cycle=1 / 50)
 
     def update_values(self, par: Tuple[str, str], val: List[float]):
         self.values.update(
@@ -67,7 +67,7 @@ class Publisher:
             }
         )
 
-    def start_data_polling(self, cycle: float = 1/50):
+    def start_data_polling(self, cycle: float = 1 / 50):
         """
         Setup cpppo polling thread, reading the measurements from an Ethernet Connection to the Distance Scanner.
 
@@ -100,7 +100,7 @@ class Publisher:
         self.pub_socket.close()
         print(f"\nClosing port {self.zmq_port}")
 
-    def run(self, cycle: float = 1/30):
+    def run(self, cycle: float = 1 / 30):
         """
         Opens a tcp socket and immediately starts sending measurement messages with specified cycletime.
 
@@ -160,7 +160,7 @@ def main():
         "--zmq_cycle",
         type=float,
         required=False,
-        default=1/30,
+        default=1 / 30,
         help="The cycle length of measurements published via zmq",
     )
 
