@@ -1,1 +1,4 @@
-cpppo
+cpppo==4.0.4
+numpy==1.18.1
+pyzmq==18.1.1
+zmq==0.0.0
