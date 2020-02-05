@@ -116,7 +116,7 @@ class Publisher:
                 if self.values:
                     age = time.time() - self.values["ts"]
 
-                    if age > cycletime:
+                    if age > cycle:
                         # only send recent values
                         continue
 
@@ -125,7 +125,7 @@ class Publisher:
                     msg = msg + " " * (80 - len(msg))
                     sys.stdout.write("\r" + msg)
 
-                time.sleep(cycletime - (time.time() - t0))
+                time.sleep(cycle - (time.time() - t0))
         except KeyboardInterrupt:
             self.destroy_zmq()
             pass
@@ -168,7 +168,7 @@ def main():
     print(args)
 
     pub = Publisher(host=args.dl100_ip, port=args.dl100_port, zmq_port=args.zmq_port)
-    pub.run(cycle=args.zmq_period)
+    pub.run(cycle=args.zmq_cycle)
 
 
 if __name__ == "__main__":
