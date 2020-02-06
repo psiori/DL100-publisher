@@ -6,7 +6,7 @@ import sys
 import threading
 import time
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import zmq
@@ -16,7 +16,7 @@ from cpppo.server.enip import client, poll
 from cpppo.server.enip.get_attribute import attribute_operations, proxy_simple as device
 
 
-def str2bool(v: List[bool, str]):
+def str2bool(v: Union[bool, str]):
     if isinstance(v, bool):
         return v
     if v.lower() in ("yes", "true", "t", "y", "1"):
