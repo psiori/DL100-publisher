@@ -12,11 +12,11 @@ $ source .venv/bin/activate
 Run the DL100_publisher:
 
 ```console
-$ python -m DL100_publisher [--dl100_ip=192.168.100.236] [--dl100_port=44818] [--zmq_port=5559] [--zmq_cycle=1/30]
+$ python -m DL100_publisher [--dl100_ip=192.168.100.236] [--dl100_port=44818] [--zmq_port=5559] [--cycle=1/30]
 ```
 
-Parameters expained: 
+Parameters explained: 
 - `dl100_port` - The port used by the DL100 distance scanner
 - `dl100_ip` - The IP of the DL100 distance scanner
 - `zmq_port` - The port used by zmq to publish values
-- `zmq_cycle` - The cycle length of measurements published via zmq
+- `cycle` - The cycle length of measurements read from the scanner and forwarded via zmq
