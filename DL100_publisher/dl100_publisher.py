@@ -91,7 +91,7 @@ class Publisher:
             self.pub_socket.send(bytes)
 
             if self.verbose:
-                msg = f"Sending: {ts}, {val_type}, {val[0]}"
+                msg = f"Sending: {ts:1,.06f}, {val_type}, {val[0]}"
                 msg = msg + " " * (80 - len(msg))
                 sys.stdout.write("\r" + msg)
 
@@ -127,7 +127,7 @@ class Publisher:
                 self.pub_socket.send(bytes)
 
                 if self.verbose:    
-                    msg = f"Sending: {ts} - {self.values}"
+                    msg = f"Sending: {self.values['ts_distance']:1,.06f}, {self.values['distance']}, {self.values['velocity']}"
                     msg = msg + " " * (80 - len(msg))
                     sys.stdout.write("\r" + msg)
 
