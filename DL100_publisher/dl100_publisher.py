@@ -61,9 +61,11 @@ class Publisher:
         self.setup_zmq()
 
         self.keymap: Dict[Tuple[str, str], int] = {
-            ("@0x23/1/24", "DINT"): 2,  # velocity
             ("@0x23/1/10", "DINT"): 1,  # distance
+            ("@0x23/1/24", "DINT"): 2,  # velocity
         }
+        
+        self.values = {}
 
     def toggle_zmq_active(self):
         if self.zmq_active:
@@ -72,7 +74,11 @@ class Publisher:
             self.zmq_active = True
         return self.zmq_active
 
-    def callback_measurements(self, par: Tuple[str, str], val: List[float]):
+    def callback_zmq_single(self, par: Tuple[str, str], val: List[float]):
+        """
+        Forward dl100 messages directly via zmq.
+        message format: timestamp, value_type (1: distance, 2: velocity), value
+        """
         ts = time.time()
         val_type = self.keymap[par]
 
@@ -89,13 +95,61 @@ class Publisher:
                 msg = msg + " " * (80 - len(msg))
                 sys.stdout.write("\r" + msg)
 
-    def start_data_polling(self, cycle: float = 1 / 50):
+    def callback_zmq_multi(self, par: Tuple[str, str], val: List[float]):
+        """
+        Forward messages once both measurements (distance + velocity) have arrived.
+        message format: timestamp (of distance measurement), distance_vaue, velocity_value
+        """
+        ts = time.time()
+
+        if par == ("@0x23/1/10", "DINT"):
+            name = 'distance'
+        elif par == ("@0x23/1/24", "DINT"):
+            name = 'velocity'
+        else:
+            raise ValueError(f"Unknown value received: {par}")
+        
+        self.values.update(
+            {
+                f"ts_{name}": ts,
+                f"{name}": val[0]
+            }
+        )   
+
+        if self.zmq_active:
+            if list(self.values.keys()) == ['ts_distance', 'distance', 'ts_velocity', 'velocity']:
+                # value collection complete, now send them out via zmq
+                bytes = (
+                    struct.pack(">d", self.values['ts_distance'])
+                    + struct.pack(">i", self.values['distance'])
+                    + struct.pack(">i", self.values['velocity'])
+                )
+                self.pub_socket.send(bytes)
+
+                if self.verbose:    
+                    msg = f"Sending: {ts} - {self.values}"
+                    msg = msg + " " * (80 - len(msg))
+                    sys.stdout.write("\r" + msg)
+
+                # reset Dict
+                self.values = {}
+
+    def start_data_polling(self, cycle: float = 1 / 50, mode: str = 'multi'):
         """
         Setup cpppo polling thread, reading the measurements from an Ethernet Connection to the Distance Scanner.
 
         Parameters:
         cycle (float): The cycle length for measurement polling
+        mode (str): 
         """
+        if mode == 'single':
+            callback = self.callback_zmq_single
+        elif mode == 'multi':
+            callback = self.callback_zmq_multi
+
+        else:
+            raise ValueError(f"Unknown polling_callback mode: {mode}")
+
         self.poller = threading.Thread(
             target=poll.poll,
             kwargs={
@@ -103,7 +157,7 @@ class Publisher:
                 "address": (self.host, self.port),
                 "cycle": cycle,
                 "timeout": 0.5,
-                "process": lambda par, val: self.callback_measurements(
+                "process": lambda par, val: callback(
                     par=par, val=val
                 ),
                 "params": list(self.keymap.keys()),
@@ -163,6 +217,14 @@ def main():
     )
 
     parser.add_argument(
+        "--mode",
+        type=str,
+        required=False,
+        default='multi',
+        help="Choose wether to send small zmq-messages per received value, or aggregate distance+velocity into one zmq-message. Options: [single, multi]",
+    )
+
+    parser.add_argument(
         "--verbose",
         type=str2bool,
         required=False,
@@ -180,7 +242,7 @@ def main():
         verbose=args.verbose,
     )
 
-    pub.start_data_polling(cycle=args.cycle)
+    pub.start_data_polling(cycle=args.cycle, mode=args.mode)
 
     try:
         while True:
