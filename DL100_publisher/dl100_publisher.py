@@ -1,6 +1,7 @@
 import argparse
 import datetime
 import os
+import random
 import struct
 import sys
 import threading
@@ -91,7 +92,7 @@ class Publisher:
             self.pub_socket.send(bytes)
 
             if self.verbose:
-                msg = f"Sending: {ts:1,.06f}, {val_type}, {val[0]}"
+                msg = f"Sending: {ts:1.06f}, {val_type}, {val[0]}"
                 msg = msg + " " * (80 - len(msg))
                 sys.stdout.write("\r" + msg)
 
@@ -133,6 +134,32 @@ class Publisher:
 
                 # reset Dict
                 self.values = {}
+
+    def send_random_data(self, cycle: float = 1 / 50):
+        prev_dist = 0
+        try:
+            while True:
+                ts = time.time()
+                dist = 2500 + int((random.random() - 0.5) * 1000)
+                vel = (dist - prev_dist) * cycle
+
+                bytes = (
+                    struct.pack(">d", ts)
+                    + struct.pack(">i", dist)
+                    + struct.pack(">i", int(vel))
+                )
+                self.pub_socket.send(bytes)
+
+                if self.verbose:    
+                    msg = f"Sending: {ts:1.06f}, {dist}, {vel}"
+                    msg = msg + " " * (80 - len(msg))
+                    sys.stdout.write("\r" + msg)
+
+                prev_dist = dist
+                time.sleep(max(0, cycle - (time.time()-ts)))
+
+        except KeyboardInterrupt:
+            pass
 
     def start_data_polling(self, cycle: float = 1 / 50, mode: str = 'multi'):
         """
@@ -232,6 +259,14 @@ def main():
         help="Activates verbose output",
     )
 
+    parser.add_argument(
+        "--send-bullshit",
+        type=str2bool,
+        required=False,
+        default=False,
+        help="Send sample data",
+    )
+
     args = parser.parse_args()
     print(args)
 
@@ -241,8 +276,10 @@ def main():
         zmq_port=args.zmq_port,
         verbose=args.verbose,
     )
-
-    pub.start_data_polling(cycle=args.cycle, mode=args.mode)
+    if args.send_bullshit:
+        pub.send_random_data(cycle=args.cycle)
+    else:
+        pub.start_data_polling(cycle=args.cycle, mode=args.mode)
 
     try:
         while True:
