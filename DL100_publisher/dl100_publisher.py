@@ -27,6 +27,11 @@ def str2bool(v: Union[bool, str]):
     else:
         raise argparse.ArgumentTypeError("Boolean value expected.")
 
+def make_msg(ts, v1, v2):
+        msg = f"{datetime.datetime.utcfromtimestamp(ts).isoformat()} - {ts:1.06f}, {v1:8.0f}, {v2:12.2f}"
+        msg = msg + " " * (80 - len(msg))
+        return msg
+
 
 class Publisher:
     """
@@ -35,17 +40,17 @@ class Publisher:
 
     def __init__(
         self,
-        host: str = "192.168.100.236",
+        zmq_port: int,
+        host: str,
         port: int = 44818,
-        zmq_port: int = 5557,
         verbose: bool = True,
     ):
         """Init method
 
         Parameters:
+        zmq_port (int): The port used by zmq to publish values
         host (str): The IP of the DL100 distance scanner
         port (int): The port used by the dl100 distance scanner
-        zmq_port (int): The port used by zmq to publish values
         verbose (bool): Activate verbose mode
         """
 
@@ -92,8 +97,7 @@ class Publisher:
             self.pub_socket.send(bytes)
 
             if self.verbose:
-                msg = f"Sending: {ts:1.06f}, {val_type}, {val[0]}"
-                msg = msg + " " * (80 - len(msg))
+                msg = make_msg(ts=ts, v1=val_type, v2=val[0])
                 sys.stdout.write("\r" + msg)
 
     def callback_zmq_multi(self, par: Tuple[str, str], val: List[float]):
@@ -127,14 +131,13 @@ class Publisher:
                 )
                 self.pub_socket.send(bytes)
 
-                if self.verbose:    
-                    msg = f"Sending: {self.values['ts_distance']:1.06f}, {self.values['distance']}, {self.values['velocity']}"
-                    msg = msg + " " * (80 - len(msg))
+                if self.verbose:
+                    msg = make_msg(ts=self.values['ts_distance'], v1=self.values['distance'], v2=self.values['velocity'])
                     sys.stdout.write("\r" + msg)
 
                 # reset Dict
                 self.values = {}
-
+    
     def send_random_data(self, cycle: float = 1 / 50):
         prev_dist = 0
         try:
@@ -150,9 +153,8 @@ class Publisher:
                 )
                 self.pub_socket.send(bytes)
 
-                if self.verbose:    
-                    msg = f"Sending: {ts:1.06f}, {dist}, {vel}"
-                    msg = msg + " " * (80 - len(msg))
+                if self.verbose:
+                    msg = make_msg(ts=ts, v1=dist, v2=vel)
                     sys.stdout.write("\r" + msg)
 
                 prev_dist = dist
@@ -224,7 +226,7 @@ def main():
         "--dl100_ip",
         type=str,
         required=False,
-        default="192.168.100.236",
+        default="192.168.101.217",
         help="The IP of the DL100 distance scanner",
     )
     parser.add_argument(
@@ -264,7 +266,7 @@ def main():
         type=str2bool,
         required=False,
         default=False,
-        help="Send sample data",
+        help="Send random sample data",
     )
 
     args = parser.parse_args()
