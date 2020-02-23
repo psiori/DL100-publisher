@@ -112,7 +112,7 @@ class Publisher:
         Forward messages once both measurements (distance + velocity) have arrived.
         message format: timestamp (of distance measurement), distance_vaue, velocity_value
         """
-        ts = int(time.time() * 1e9)
+        ts = int(time.time() * 1e3)
 
         if par == ("@0x23/1/10", "DINT"):
             name = 'distance'
