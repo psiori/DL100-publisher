@@ -28,10 +28,20 @@ def str2bool(v: Union[bool, str]):
         raise argparse.ArgumentTypeError("Boolean value expected.")
 
 def make_msg(ts, v1, v2):
-        msg = f"{datetime.datetime.utcfromtimestamp(ts).isoformat()} - {ts:1.06f}, {v1:8.0f}, {v2:12.2f}"
+        msg = f"{datetime.datetime.fromtimestamp(ts/1e3).isoformat()} - {ts}, {v1:8.0f}, {v2:12.2f}"
         msg = msg + " " * (80 - len(msg))
         return msg
+        
+def pack_bytes(ts: int, v1: int, v2: int, verbose: bool = False):
+    if verbose:
+        msg = make_msg(ts=ts, v1=v1, v2=v2)
+        sys.stdout.write("\r" + msg)
 
+    return (
+                struct.pack("<Q", int(ts))
+                + struct.pack("<i", int(v1))
+                + struct.pack("<i", int(v2))
+            )
 
 class Publisher:
     """
@@ -85,27 +95,24 @@ class Publisher:
         Forward dl100 messages directly via zmq.
         message format: timestamp, value_type (1: distance, 2: velocity), value
         """
-        ts = time.time()
+        ts = int(time.time() * 1e3)
         val_type = self.keymap[par]
 
         if self.zmq_active:
-            bytes = (
-                struct.pack(">d", ts)
-                + struct.pack(">i", val_type)
-                + struct.pack(">i", val[0])
+            bytes = pack_bytes(
+                ts=ts,
+                v1=val_type, 
+                v2=val[0],
+                verbose=self.verbose
             )
             self.pub_socket.send(bytes)
-
-            if self.verbose:
-                msg = make_msg(ts=ts, v1=val_type, v2=val[0])
-                sys.stdout.write("\r" + msg)
 
     def callback_zmq_multi(self, par: Tuple[str, str], val: List[float]):
         """
         Forward messages once both measurements (distance + velocity) have arrived.
         message format: timestamp (of distance measurement), distance_vaue, velocity_value
         """
-        ts = time.time()
+        ts = int(time.time() * 1e9)
 
         if par == ("@0x23/1/10", "DINT"):
             name = 'distance'
@@ -124,16 +131,12 @@ class Publisher:
         if self.zmq_active:
             if list(self.values.keys()) == ['ts_distance', 'distance', 'ts_velocity', 'velocity']:
                 # value collection complete, now send them out via zmq
-                bytes = (
-                    struct.pack(">d", self.values['ts_distance'])
-                    + struct.pack(">i", self.values['distance'])
-                    + struct.pack(">i", self.values['velocity'])
-                )
+                bytes = pack_bytes(
+                    ts=self.values['ts_distance'],
+                    v1=self.values['distance'], 
+                    v2=self.values['velocity'],
+                    verbose=self.verbose)
                 self.pub_socket.send(bytes)
-
-                if self.verbose:
-                    msg = make_msg(ts=self.values['ts_distance'], v1=self.values['distance'], v2=self.values['velocity'])
-                    sys.stdout.write("\r" + msg)
 
                 # reset Dict
                 self.values = {}
@@ -146,16 +149,13 @@ class Publisher:
                 dist = 2500 + int((random.random() - 0.5) * 1000)
                 vel = (dist - prev_dist) * cycle
 
-                bytes = (
-                    struct.pack(">d", ts)
-                    + struct.pack(">i", dist)
-                    + struct.pack(">i", int(vel))
+                bytes = pack_bytes(
+                    ts=int(ts*1e3),
+                    v1=dist,
+                    v2=vel,
+                    verbose=self.verbose
                 )
                 self.pub_socket.send(bytes)
-
-                if self.verbose:
-                    msg = make_msg(ts=ts, v1=dist, v2=vel)
-                    sys.stdout.write("\r" + msg)
 
                 prev_dist = dist
                 time.sleep(max(0, cycle - (time.time()-ts)))
