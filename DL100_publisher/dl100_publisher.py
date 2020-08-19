@@ -141,12 +141,15 @@ class Publisher:
                 # reset Dict
                 self.values = {}
     
-    def send_random_data(self, cycle: float = 1 / 50):
+    def send_random_data(self, cycle: float = 1 / 50, generate_zeros: bool = False):
         prev_dist = 0
         try:
             while True:
                 ts = time.time()
-                dist = 2500 + int((random.random() - 0.5) * 1000)
+                if generate_zeros:
+                    dist = 0
+                else:
+                    dist = 2500 + int((random.random() - 0.5) * 1000)
                 vel = (dist - prev_dist) * cycle
 
                 bytes = pack_bytes(
@@ -269,6 +272,14 @@ def main():
         help="Send random sample data",
     )
 
+    parser.add_argument(
+        "--send-zeros",
+        type=str2bool,
+        required=False,
+        default=False,
+        help="Send distance==0 data (i.e. invalid/reflector plate missed)",
+    )
+
     args = parser.parse_args()
     print(args)
 
@@ -279,7 +290,7 @@ def main():
         verbose=args.verbose,
     )
     if args.send_bullshit:
-        pub.send_random_data(cycle=args.cycle)
+        pub.send_random_data(cycle=args.cycle, generate_zeros=args.send_zeros)
     else:
         pub.start_data_polling(cycle=args.cycle, mode=args.mode)
 
