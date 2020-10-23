@@ -20,6 +20,6 @@ Parameters explained:
 - `dl100_ip` - The IP of the DL100 distance scanner
 - `zmq_port` - The port used by zmq to publish values
 - `cycle` - The cycle length of measurements read from the scanner and forwarded via zmq
-- `mode` - Choose wether to send small zmq-messages per received value, or aggregate distance+velocity into one zmq-message. Options: [single, multi]
+- `mode` - Choose whether to send small zmq-messages per received value, or aggregate distance+velocity into one zmq-message. Options: [single, multi]
   - `single` - Message Format: `timestamp`, `value_type` (1: distance, 2: velocity), `value`
   - `multi` - Message Format:  `timestamp` (of distance measurement), `distance_vaue`, `velocity_value`

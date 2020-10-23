@@ -253,7 +253,7 @@ def main():
         type=str,
         required=False,
         default='multi',
-        help="Choose wether to send small zmq-messages per received value, or aggregate distance+velocity into one zmq-message. Options: [single, multi]",
+        help="Choose whether to send small zmq-messages per received value, or aggregate distance+velocity into one zmq-message. Options: [single, multi]",
     )
 
     parser.add_argument(
