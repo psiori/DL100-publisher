@@ -9,8 +9,8 @@ import time
 
 from typing import Dict, List, Optional, Tuple, Union
 
-import numpy as np
 import zmq
+from zmq.auth.thread import ThreadAuthenticator
 
 import cpppo
 from cpppo.server.enip import client, poll
@@ -27,21 +27,23 @@ def str2bool(v: Union[bool, str]):
     else:
         raise argparse.ArgumentTypeError("Boolean value expected.")
 
+
 def make_msg(ts, v1, v2):
         msg = f"{datetime.datetime.fromtimestamp(ts/1e3).isoformat()} - {ts}, {v1:8.0f}, {v2:12.2f}"
         msg = msg + " " * (80 - len(msg))
         return msg
-        
+
+
 def pack_bytes(ts: int, v1: int, v2: int, verbose: bool = False):
     if verbose:
         msg = make_msg(ts=ts, v1=v1, v2=v2)
         sys.stdout.write("\r" + msg)
 
     return (
-                struct.pack("<Q", int(ts))
-                + struct.pack("<i", int(v1))
-                + struct.pack("<i", int(v2))
-            )
+        struct.pack("<Q", int(ts))
+        + struct.pack("<i", int(v1))
+        + struct.pack("<i", int(v2))
+    )
 
 class Publisher:
     """
@@ -58,10 +60,10 @@ class Publisher:
         """Init method
 
         Parameters:
-        zmq_port (int): The port used by zmq to publish values
-        host (str): The IP of the DL100 distance scanner
-        port (int): The port used by the dl100 distance scanner
-        verbose (bool): Activate verbose mode
+            zmq_port (int): The port used by zmq to publish values
+            host (str): The IP of the DL100 distance scanner
+            port (int): The port used by the dl100 distance scanner
+            verbose (bool): Activate verbose mode
         """
 
         self.host = host
@@ -80,7 +82,7 @@ class Publisher:
             ("@0x23/1/10", "DINT"): 1,  # distance
             ("@0x23/1/24", "DINT"): 2,  # velocity
         }
-        
+
         self.values = {}
 
     def toggle_zmq_active(self):
@@ -101,7 +103,7 @@ class Publisher:
         if self.zmq_active:
             bytes = pack_bytes(
                 ts=ts,
-                v1=val_type, 
+                v1=val_type,
                 v2=val[0],
                 verbose=self.verbose
             )
@@ -120,27 +122,27 @@ class Publisher:
             name = 'velocity'
         else:
             raise ValueError(f"Unknown value received: {par}")
-        
+
         self.values.update(
             {
                 f"ts_{name}": ts,
                 f"{name}": val[0]
             }
-        )   
+        )
 
         if self.zmq_active:
             if list(self.values.keys()) == ['ts_distance', 'distance', 'ts_velocity', 'velocity']:
                 # value collection complete, now send them out via zmq
                 bytes = pack_bytes(
                     ts=self.values['ts_distance'],
-                    v1=self.values['distance'], 
+                    v1=self.values['distance'],
                     v2=self.values['velocity'],
                     verbose=self.verbose)
                 self.pub_socket.send(bytes)
 
                 # reset Dict
                 self.values = {}
-    
+
     def send_random_data(self, cycle: float = 1 / 50, generate_zeros: bool = False):
         prev_dist = 0
         try:
@@ -171,8 +173,8 @@ class Publisher:
         Setup cpppo polling thread, reading the measurements from an Ethernet Connection to the Distance Scanner.
 
         Parameters:
-        cycle (float): The cycle length for measurement polling
-        mode (str): 
+            cycle (float): The cycle length for measurement polling
+            mode (str):
         """
         if mode == 'single':
             callback = self.callback_zmq_single
@@ -203,7 +205,23 @@ class Publisher:
             self.destroy_zmq()
 
         context = zmq.Context()
+
+        # Username/password from the environment. Note that this does not
+        # encrypt communication, just plain text authentication for now.
+        AC_USER = os.environ.get("AC_USER", None)
+        AC_PASS = os.environ.get("AC_PASS", None)
+
+        # Start authentication thread. All sockets on context will use this
+        # handler. Make sure to set the `plain_server` variable on each socket.
+        if AC_USER and AC_PASS:
+            auth = ThreadAuthenticator(context)
+            auth.start()
+            auth.allow("127.0.0.1")
+            auth.configure_plain(domain="*", passwords={AC_USER: AC_PASS})
+
+        # Create publisher.
         self.pub_socket = context.socket(zmq.PUB)
+        self.pub_socket.plain_server = AC_USER and AC_PASS
         print("Publishing zmq msgs on port {port}".format(port=self.zmq_port))
         bind_addr = "tcp://*:{port}".format(port=self.zmq_port)
         self.pub_socket.bind(bind_addr)
@@ -216,7 +234,6 @@ class Publisher:
 
 
 def main():
-
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--dl100_port",
