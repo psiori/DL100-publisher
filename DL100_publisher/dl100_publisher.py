@@ -40,15 +40,16 @@ class Publisher:
 
     def __init__(
         self,
-        zmq_port: int,
+        connect_str : str,
         host: str,
         port: int = 44818,
         verbose: bool = True,
+        context : zmq.Context = zmq.Context()
     ):
         """Init method
 
         Parameters:
-        zmq_port (int): The port used by zmq to publish values
+        connect_str (str): ZMQ connection string to call bind() with
         host (str): The IP of the DL100 distance scanner
         port (int): The port used by the dl100 distance scanner
         verbose (bool): Activate verbose mode
@@ -56,7 +57,6 @@ class Publisher:
 
         self.host = host
         self.port = port  # 44818: port for Ethernet IP
-        self.zmq_port = zmq_port
         self.verbose = verbose
 
         self.zmq_active = False
@@ -64,13 +64,13 @@ class Publisher:
 
         self.poller: Optional[threading.Thread] = None
 
-        self.setup_zmq()
+        self.setup_zmq(connect_str, context)
 
         self.keymap: Dict[Tuple[str, str], int] = {
             ("@0x23/1/10", "DINT"): 1,  # distance
             ("@0x23/1/24", "DINT"): 2,  # velocity
         }
-        
+
         self.values = {}
 
     def toggle_zmq_active(self):
@@ -188,21 +188,19 @@ class Publisher:
         self.poller.daemon = True
         self.poller.start()
 
-    def setup_zmq(self):
+    def setup_zmq(self, connect_str, context):
         if self.pub_socket and not self.pub_socket.closed:
             self.destroy_zmq()
 
-        context = zmq.Context()
         self.pub_socket = context.socket(zmq.PUB)
-        print("Publishing zmq msgs on port {port}".format(port=self.zmq_port))
-        bind_addr = "tcp://*:{port}".format(port=self.zmq_port)
-        self.pub_socket.bind(bind_addr)
+        print(f"Publishing zmq msgs on socket {connect_str} ")
+        self.pub_socket.bind(connect_str)
         self.zmq_active = True
 
     def destroy_zmq(self):
         self.zmq_active = False
         self.pub_socket.close()
-        print(f"Closing port {self.zmq_port}")
+        print(f"Closing socket")
 
 
 def main():
@@ -271,9 +269,9 @@ def main():
     print(args)
 
     pub = Publisher(
+        connect_str=f"tcp://*:{args.zmq_port}",
         host=args.dl100_ip,
         port=args.dl100_port,
-        zmq_port=args.zmq_port,
         verbose=args.verbose,
     )
     if args.send_bullshit:
