@@ -167,7 +167,6 @@ class Publisher:
 
         self.pub_socket = context.socket(zmq.PUB)
         self.pub_socket.setsockopt(zmq.CONFLATE, 1)
-        print(f"Publishing zmq msgs on socket {connect_str} ")
         self.pub_socket.bind(connect_str)
         self.zmq_active = True
 
