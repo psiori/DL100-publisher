@@ -17,21 +17,11 @@ from cpppo.server.enip import client, poll
 from cpppo.server.enip.get_attribute import attribute_operations, proxy_simple as device
 
 
-def str2bool(v: Union[bool, str]):
-    if isinstance(v, bool):
-        return v
-    if v.lower() in ("yes", "true", "t", "y", "1"):
-        return True
-    elif v.lower() in ("no", "false", "f", "n", "0"):
-        return False
-    else:
-        raise argparse.ArgumentTypeError("Boolean value expected.")
-
 def make_msg(ts, v1, v2):
         msg = f"{datetime.datetime.fromtimestamp(ts/1e3).isoformat()} - {ts}, {v1:8.0f}, {v2:12.2f}"
         msg = msg + " " * (80 - len(msg))
         return msg
-        
+
 def pack_bytes(ts: int, v1: int, v2: int, verbose: bool = False):
     if verbose:
         msg = make_msg(ts=ts, v1=v1, v2=v2)
@@ -258,25 +248,22 @@ def main():
 
     parser.add_argument(
         "--verbose",
-        type=str2bool,
+        action="store_true",
         required=False,
-        default=True,
         help="Activates verbose output",
     )
 
     parser.add_argument(
         "--send-bullshit",
-        type=str2bool,
+        action="store_true",
         required=False,
-        default=False,
         help="Send random sample data",
     )
 
     parser.add_argument(
         "--send-zeros",
-        type=str2bool,
+        action="store_true",
         required=False,
-        default=False,
         help="Send distance==0 data (i.e. invalid/reflector plate missed)",
     )
 
