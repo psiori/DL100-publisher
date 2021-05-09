@@ -89,13 +89,13 @@ class Publisher:
         val_type = self.keymap[par]
 
         if self.zmq_active:
-            bytes = pack_bytes(
+            serialized = pack_bytes(
                 ts=ts,
-                v1=val_type, 
+                v1=val_type,
                 v2=val[0],
                 verbose=self.verbose
             )
-            self.pub_socket.send(bytes)
+            self.pub_socket.send(serialized)
 
     def callback_zmq_multi(self, par: Tuple[str, str], val: List[float]):
         """
@@ -110,27 +110,27 @@ class Publisher:
             name = 'velocity'
         else:
             raise ValueError(f"Unknown value received: {par}")
-        
+
         self.values.update(
             {
                 f"ts_{name}": ts,
                 f"{name}": val[0]
             }
-        )   
+        )
 
         if self.zmq_active:
             if list(self.values.keys()) == ['ts_distance', 'distance', 'ts_velocity', 'velocity']:
                 # value collection complete, now send them out via zmq
                 bytes = pack_bytes(
                     ts=self.values['ts_distance'],
-                    v1=self.values['distance'], 
+                    v1=self.values['distance'],
                     v2=self.values['velocity'],
                     verbose=self.verbose)
                 self.pub_socket.send(bytes)
 
                 # reset Dict
                 self.values = {}
-    
+
     def send_random_data(self, cycle: float = 1 / 50, generate_zeros: bool = False):
         prev_dist = 0
         try:
@@ -162,7 +162,7 @@ class Publisher:
 
         Parameters:
         cycle (float): The cycle length for measurement polling
-        mode (str): 
+        mode (str):
         """
         if mode == 'single':
             callback = self.callback_zmq_single
