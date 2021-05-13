@@ -38,7 +38,7 @@ class Publisher:
 
     def __init__(
         self,
-        connect_str: str,
+        bind_str: str,
         host: str,
         port: int = 44818,
         verbose: bool = True,
@@ -48,7 +48,7 @@ class Publisher:
 
         params
         ------
-        connect_str : str   Connection string for zmq socket which  messages made by pack_bytes() will be sent to.  E.g. inproc://dl100 or tcp://localhost:8090
+        bind_str : str   Connection string for zmq socket which  messages made by pack_bytes() will be sent to.  E.g. inproc://dl100 or tcp://localhost:8090
         host:   str Hostname of DL100 device
         port:   str Port for DL100 Ethernet/IP  communication
         verbose:    Bool    Print the current values
@@ -64,7 +64,7 @@ class Publisher:
 
         self.poller: Optional[threading.Thread] = None
 
-        self.setup_zmq(connect_str, context)
+        self.setup_zmq(bind_str, context)
 
         self.keymap: Dict[Tuple[str, str], int] = {
             ("@0x23/1/10", "DINT"): 1,  # distance
@@ -161,13 +161,13 @@ class Publisher:
         self.poller.daemon = True
         self.poller.start()
 
-    def setup_zmq(self, connect_str, context):
+    def setup_zmq(self, bind_str, context):
         if self.pub_socket and not self.pub_socket.closed:
             self.destroy_zmq()
 
         self.pub_socket = context.socket(zmq.PUB)
         self.pub_socket.setsockopt(zmq.CONFLATE, 1)
-        self.pub_socket.bind(connect_str)
+        self.pub_socket.bind(bind_str)
         self.zmq_active = True
 
     def destroy_zmq(self):
@@ -210,6 +210,13 @@ def main():
     )
 
     parser.add_argument(
+        "--verbose",
+        action="store_true",
+        required=False,
+        help="Activates verbose output",
+    )
+
+    parser.add_argument(
         "--send-bullshit",
         action="store_true",
         required=False,
@@ -227,7 +234,7 @@ def main():
     print(args)
 
     pub = Publisher(
-        connect_str=f"tcp://*:{args.zmq_port}",
+        bind_str=arg.bind_str,
         host=args.dl100_ip,
         port=args.dl100_port,
         verbose=args.verbose,
