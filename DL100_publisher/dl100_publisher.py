@@ -18,9 +18,10 @@ from cpppo.server.enip.get_attribute import attribute_operations, proxy_simple a
 
 
 def make_msg(ts, v1, v2):
-        msg = f"{datetime.datetime.fromtimestamp(ts/1e3).isoformat()} - {ts}, {v1:8.0f}, {v2:12.2f}"
-        msg = msg + " " * (80 - len(msg))
-        return msg
+    msg = f"{datetime.datetime.fromtimestamp(ts/1e3).isoformat()} - {ts}, {v1:8.0f}, {v2:12.2f}"
+    msg = msg + " " * (80 - len(msg))
+    return msg
+
 
 def pack_bytes(ts: int, v1: int, v2: int, verbose: bool = False):
     if verbose:
@@ -28,10 +29,11 @@ def pack_bytes(ts: int, v1: int, v2: int, verbose: bool = False):
         sys.stdout.write("\r" + msg)
 
     return (
-                struct.pack("<Q", int(ts))
-                + struct.pack("<i", int(v1))
-                + struct.pack("<i", int(v2))
-            )
+        struct.pack("<Q", int(ts))
+        + struct.pack("<i", int(v1))
+        + struct.pack("<i", int(v2))
+    )
+
 
 class Publisher:
     """
@@ -40,11 +42,11 @@ class Publisher:
 
     def __init__(
         self,
-        connect_str : str,
+        connect_str: str,
         host: str,
         port: int = 44818,
         verbose: bool = True,
-        context : zmq.Context = zmq.Context()
+        context: zmq.Context = zmq.Context(),
     ):
         """Init method
 
@@ -80,24 +82,7 @@ class Publisher:
             self.zmq_active = True
         return self.zmq_active
 
-    def callback_zmq_single(self, par: Tuple[str, str], val: List[float]):
-        """
-        Forward dl100 messages directly via zmq.
-        message format: timestamp, value_type (1: distance, 2: velocity), value
-        """
-        ts = int(time.time() * 1e3)
-        val_type = self.keymap[par]
-
-        if self.zmq_active:
-            serialized = pack_bytes(
-                ts=ts,
-                v1=val_type,
-                v2=val[0],
-                verbose=self.verbose
-            )
-            self.pub_socket.send(serialized)
-
-    def callback_zmq_multi(self, par: Tuple[str, str], val: List[float]):
+    def callback_send_zmq(self, par: Tuple[str, str], val: List[float]):
         """
         Forward messages once both measurements (distance + velocity) have arrived.
         message format: timestamp (of distance measurement), distance_vaue, velocity_value
@@ -105,27 +90,28 @@ class Publisher:
         ts = int(time.time() * 1e3)
 
         if par == ("@0x23/1/10", "DINT"):
-            name = 'distance'
+            name = "distance"
         elif par == ("@0x23/1/24", "DINT"):
-            name = 'velocity'
+            name = "velocity"
         else:
             raise ValueError(f"Unknown value received: {par}")
 
-        self.values.update(
-            {
-                f"ts_{name}": ts,
-                f"{name}": val[0]
-            }
-        )
+        self.values.update({f"ts_{name}": ts, f"{name}": val[0]})
 
         if self.zmq_active:
-            if list(self.values.keys()) == ['ts_distance', 'distance', 'ts_velocity', 'velocity']:
+            if list(self.values.keys()) == [
+                "ts_distance",
+                "distance",
+                "ts_velocity",
+                "velocity",
+            ]:
                 # value collection complete, now send them out via zmq
                 bytes = pack_bytes(
-                    ts=self.values['ts_distance'],
-                    v1=self.values['distance'],
-                    v2=self.values['velocity'],
-                    verbose=self.verbose)
+                    ts=self.values["ts_distance"],
+                    v1=self.values["distance"],
+                    v2=self.values["velocity"],
+                    verbose=self.verbose,
+                )
                 self.pub_socket.send(bytes)
 
                 # reset Dict
@@ -143,20 +129,17 @@ class Publisher:
                 vel = (dist - prev_dist) * cycle
 
                 bytes = pack_bytes(
-                    ts=int(ts*1e3),
-                    v1=dist,
-                    v2=vel,
-                    verbose=self.verbose
+                    ts=int(ts * 1e3), v1=dist, v2=vel, verbose=self.verbose
                 )
                 self.pub_socket.send(bytes)
 
                 prev_dist = dist
-                time.sleep(max(0, cycle - (time.time()-ts)))
+                time.sleep(max(0, cycle - (time.time() - ts)))
 
         except KeyboardInterrupt:
             pass
 
-    def start_data_polling(self, cycle: float = 1 / 50, mode: str = 'multi'):
+    def start_data_polling(self, cycle: float = 1 / 50):
         """
         Setup cpppo polling thread, reading the measurements from an Ethernet Connection to the Distance Scanner.
 
@@ -164,13 +147,7 @@ class Publisher:
         cycle (float): The cycle length for measurement polling
         mode (str):
         """
-        if mode == 'single':
-            callback = self.callback_zmq_single
-        elif mode == 'multi':
-            callback = self.callback_zmq_multi
-
-        else:
-            raise ValueError(f"Unknown polling_callback mode: {mode}")
+        callback = self.callback_send_zmq
 
         self.poller = threading.Thread(
             target=poll.poll,
@@ -179,9 +156,7 @@ class Publisher:
                 "address": (self.host, self.port),
                 "cycle": cycle,
                 "timeout": 0.5,
-                "process": lambda par, val: callback(
-                    par=par, val=val
-                ),
+                "process": lambda par, val: callback(par=par, val=val),
                 "params": list(self.keymap.keys()),
             },
         )
@@ -193,6 +168,7 @@ class Publisher:
             self.destroy_zmq()
 
         self.pub_socket = context.socket(zmq.PUB)
+        self.pub_socket.setsockopt(zmq.CONFLATE, 1)
         print(f"Publishing zmq msgs on socket {connect_str} ")
         self.pub_socket.bind(connect_str)
         self.zmq_active = True
@@ -237,21 +213,6 @@ def main():
     )
 
     parser.add_argument(
-        "--mode",
-        type=str,
-        required=False,
-        default='multi',
-        help="Choose whether to send small zmq-messages per received value, or aggregate distance+velocity into one zmq-message. Options: [single, multi]",
-    )
-
-    parser.add_argument(
-        "--verbose",
-        action="store_true",
-        required=False,
-        help="Activates verbose output",
-    )
-
-    parser.add_argument(
         "--send-bullshit",
         action="store_true",
         required=False,
@@ -277,7 +238,7 @@ def main():
     if args.send_bullshit:
         pub.send_random_data(cycle=args.cycle, generate_zeros=args.send_zeros)
     else:
-        pub.start_data_polling(cycle=args.cycle, mode=args.mode)
+        pub.start_data_polling(cycle=args.cycle)
 
     try:
         while True:
