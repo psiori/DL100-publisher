@@ -28,11 +28,7 @@ def pack_bytes(ts: int, v1: int, v2: int, verbose: bool = False):
         msg = make_msg(ts=ts, v1=v1, v2=v2)
         sys.stdout.write("\r" + msg)
 
-    return (
-        struct.pack("<Q", int(ts))
-        + struct.pack("<i", int(v1))
-        + struct.pack("<i", int(v2))
-    )
+    return struct.pack("<Qii", int(ts), int(v1), int(v2))
 
 
 class Publisher:
@@ -50,11 +46,13 @@ class Publisher:
     ):
         """Init method
 
-        Parameters:
-        connect_str (str): ZMQ connection string to call bind() with
-        host (str): The IP of the DL100 distance scanner
-        port (int): The port used by the dl100 distance scanner
-        verbose (bool): Activate verbose mode
+        params
+        ------
+        connect_str : str   Connection string for zmq socket which  messages made by pack_bytes() will be sent to.  E.g. inproc://dl100 or tcp://localhost:8090
+        host:   str Hostname of DL100 device
+        port:   str Port for DL100 Ethernet/IP  communication
+        verbose:    Bool    Print the current values
+        context:    zmq.Context     Context object to use. When using inproc, need to pass context which was also used for receiver socket
         """
 
         self.host = host
@@ -183,25 +181,25 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--dl100_port",
+        "--dl100-port",
         type=int,
         required=False,
         default=44818,
         help="The port used by the DL100 distance scanner",
     )
     parser.add_argument(
-        "--dl100_ip",
+        "--dl100-ip",
         type=str,
         required=False,
         default="192.168.101.217",
         help="The IP of the DL100 distance scanner",
     )
     parser.add_argument(
-        "--zmq_port",
-        type=int,
+        "--bind-str",
+        type=str,
         required=False,
-        default=5559,
-        help="The port used by zmq to publish values",
+        default="tcp://localhost:5559",
+        help="Address to bind to",
     )
 
     parser.add_argument(
