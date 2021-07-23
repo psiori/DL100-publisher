@@ -16,6 +16,9 @@ import cpppo
 from cpppo.server.enip import client, poll
 from cpppo.server.enip.get_attribute import attribute_operations, proxy_simple as device
 
+import logging
+cpppo.log_cfg['level'] = logging.ERROR
+
 
 def make_msg(ts, v1, v2):
     msg = f"{datetime.datetime.fromtimestamp(ts/1e3).isoformat()} - {ts}, {v1:8.0f}, {v2:12.2f}"
