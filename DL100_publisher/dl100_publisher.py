@@ -200,7 +200,7 @@ def main():
         "--bind-str",
         type=str,
         required=False,
-        default="tcp://localhost:5559",
+        default="tcp://*:5559",
         help="Address to bind to",
     )
 
@@ -237,7 +237,7 @@ def main():
     print(args)
 
     pub = Publisher(
-        bind_str=arg.bind_str,
+        bind_str=args.bind_str,
         host=args.dl100_ip,
         port=args.dl100_port,
         verbose=args.verbose,
