@@ -17,7 +17,8 @@ from cpppo.server.enip import client, poll
 from cpppo.server.enip.get_attribute import attribute_operations, proxy_simple as device
 
 import logging
-cpppo.log_cfg['level'] = logging.ERROR
+
+cpppo.log_cfg["level"] = logging.ERROR
 
 
 def make_msg(ts, v1, v2):
