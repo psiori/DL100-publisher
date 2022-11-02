@@ -13,8 +13,8 @@ import numpy as np
 import zmq
 
 import cpppo
-from cpppo.server.enip import client, poll
-from cpppo.server.enip.get_attribute import attribute_operations, proxy_simple as device
+from cpppo.server.enip import poll
+from cpppo.server.enip.get_attribute import proxy_simple as device
 
 import logging
 
